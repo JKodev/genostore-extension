@@ -1,0 +1,30 @@
+{
+  "name": "Load Shein order",
+  "description": "Load Shein order into shopify",
+  "version": "1.0",
+  "manifest_version": 3,
+  "icons": {
+    "16": "images/touch-icon-ipad-72.png",
+    "48": "images/touch-icon-ipad-120.png",
+    "128": "images/touch-icon-ipad-144.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "storage"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/reader.js"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["inject.js"],
+      "all_frames": true
+    }
+  ]
+}
