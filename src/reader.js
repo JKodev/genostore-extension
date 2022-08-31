@@ -5,16 +5,18 @@ function css(element, style) {
 }
 
 async function getExchangePrice(timestamp) {
-  const date = new Date(timestamp).toISOString().split('T')[0];
+  const date = new Date(timestamp).toISOString().split("T")[0];
   try {
-    const response = await fetch(`https://cors.genostore.us/https://api.apis.net.pe/v1/tipo-cambio-sunat?fecha=${date}`,
+    const response = await fetch(
+      `https://cors.genostore.us/https://api.apis.net.pe/v1/tipo-cambio-sunat?fecha=${date}`,
       {
-      headers: {
-        'Content-Type': 'application/json',
-        'Referer': 'https://apis.net.pe/tipo-de-cambio-sunat-api',
-        'Authorization': 'Bearer apis-token-1.aTSI1U7KEuT-6bbbCguH-4Y8TI6KS73N'
+        headers: {
+          "Content-Type": "application/json",
+          Referer: "https://apis.net.pe/tipo-de-cambio-sunat-api",
+          Authorization: "Bearer apis-token-1.aTSI1U7KEuT-6bbbCguH-4Y8TI6KS73N",
+        },
       }
-    });
+    );
     const data = await response.json();
     console.log("Data Exchange", data);
     return parseFloat(data.compra);
@@ -33,56 +35,106 @@ async function parseOrder() {
       name: product.goods_name,
       price: avgPrice.usdAmount * exchangeRate,
       sku: product.goods_sn,
-      image: product.goods_img.replace(/_thumbnail_.*(.jpg)/, '.jpg'),
+      image: product.goods_img.replace(/_thumbnail_.*(.jpg)/, ".jpg"),
       quantity,
-      options: sku_sale_attr.map(({ attr_name, attr_value_name}) => ({ name: attr_name, value: attr_value_name}))
-    }
+      options: sku_sale_attr.map(({ attr_name, attr_value_name }) => ({
+        name: attr_name,
+        value: attr_value_name,
+      })),
+    };
   });
   return {
-    data: items,
+    products: items,
   };
 }
 
 function verifySiteOrder() {
   const location = window.location.pathname;
-  const { groups } = location.match(/^\/user\/orders\/detail\/(?<orderCode>[A-Z0-9]+)$/) || {};
+  const { groups } =
+    location.match(/^\/user\/orders\/detail\/(?<orderCode>[A-Z0-9]+)$/) || {};
   if (!groups) {
     return {
       orderCode: null,
       valid: false,
-    }
+    };
   }
   return {
     orderCode: groups.orderCode,
     valid: true,
-  }
+  };
 }
 
 async function sendOrderItems() {
+  const button = document.getElementById("genostore-save-btn");
+  if (button.disabled) {
+    return;
+  }
+  button.disabled = true;
+  button.innerHTML = "Cargando Productos...";
+  button.style.cursor = "not-allowed";
   try {
     const orderItems = await parseOrder();
     console.log("orderItems", orderItems);
-    const response = await fetch("https://hook.us1.make.com/3qogp6pm03br1i88fwc4u35tew45oih4",
+    const response = await fetch(
+      "https://service.genostore.us/create-product",
       {
         method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(orderItems),
-      });
+      }
+    );
     if (response.ok) {
-      alert("Orden enviada, por favor verifica los productos");
+      const data = await response.json();
+      for (product of data.products) {
+        const { variants } = product;
+        const [variant] = variants;
+        const rowTable = document.querySelector(
+          `[aria-label="SKU${variant.sku}"]`
+        );
+        if (rowTable) {
+          const span = document.createElement("span");
+          span.dataset.genostore = "genostore-item";
+          span.innerHTML = "Actualizado";
+          css(span, {
+            fontSize: "12px",
+            color: "#7FB77E",
+            fontStyle: "italic",
+            fontWeight: "bold",
+            display: "block",
+          });
+          rowTable.appendChild(span);
+          const link = document.createElement("a");
+          link.href = `https://genostoreaqp.myshopify.com/admin/products/${product.id}`;
+          link.innerHTML = "Editar Producto";
+          link.target = "_blank";
+          css(link, {
+            fontSize: "12px",
+            color: "#277BC0",
+            fontStyle: "italic",
+            fontWeight: "bold",
+            display: "block",
+          });
+          rowTable.appendChild(link);
+        }
+      }
     } else {
       throw new Error("fetch failed");
     }
   } catch (error) {
     alert(`No se ha podido procesar los datos ${error.message}`);
+  } finally {
+    button.disabled = false;
+    button.innerHTML = "Guardar Orden en Tienda";
+    button.style.cursor = "pointer";
   }
 }
 
 function addButton(orderCode) {
   const button = document.createElement("button");
   button.innerHTML = "Guardar Orden en Tienda";
+  button.id = "genostore-save-btn";
   button.onclick = sendOrderItems;
   css(button, {
     minWidth: "80px",
@@ -100,7 +152,9 @@ function addButton(orderCode) {
     cursor: "pointer",
   });
   const splitOrderCode = ` ${orderCode.split("").join(" ")}`;
-  const element = document.querySelector(`.order-info > li > [aria-label="${splitOrderCode}"]`);
+  const element = document.querySelector(
+    `.order-info > li > [aria-label="${splitOrderCode}"]`
+  );
   element.appendChild(button);
 }
 
@@ -109,4 +163,4 @@ function addButton(orderCode) {
   if (siteOrder.valid) {
     addButton(siteOrder.orderCode);
   }
-})()
+})();
