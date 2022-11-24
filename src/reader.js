@@ -133,7 +133,7 @@ async function saveOrder() {
   try {
     const order = await prepareOrder();
     console.log("Order", order);
-    const response = await fetch("http://localhost:3000/orders", {
+    const response = await fetch("https://service.genostore.us/orders", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
