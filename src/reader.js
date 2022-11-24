@@ -64,6 +64,97 @@ function verifySiteOrder() {
   };
 }
 
+function getData4Order() {
+  const orderDTO = window.GB_OrderDetail.order;
+  return {
+    orderId: orderDTO.id,
+    orderNumber: orderDTO.billno,
+    coupon: orderDTO.coupon_list.map((coupon) => ({
+      amount: coupon.coupon_price.amount,
+      name: coupon.coupon,
+    })),
+    subTotal: parseFloat(orderDTO.subTotalPrice.amount.toString()),
+    total: parseFloat(orderDTO.totalPrice.amount.toString()),
+    payment: {
+      title: orderDTO.paymentTitle,
+      methodName: orderDTO.payment_method,
+      number: orderDTO.payment_no,
+      time: orderDTO.paymentTime,
+    },
+    relationBillNumber: orderDTO.relation_billno,
+    orderDetails: orderDTO.preOrderGoodsList.map((orderGoods) => ({
+      orderDetailId: orderGoods.id,
+      unitPrice: parseFloat(orderGoods.unitPrice.amount.toString()),
+      quantity: parseInt(orderGoods.quantity, 10),
+      totalPrice: parseFloat(orderGoods.totalPrice.amount.toString()),
+      salePrice: parseFloat(orderGoods.avgPrice.amount.toString()),
+      referenceNumber: orderGoods.reference_number,
+      shippingNumber: orderGoods.shipping_no,
+      skuCode: orderGoods.sku_code,
+      variants: orderGoods.sku_sale_attr.map((variant) => ({
+        name: variant.attr_name,
+        value: variant.attr_value_name,
+      })),
+      product: {
+        productId: orderGoods.product.goods_id,
+        name: orderGoods.product.goods_name,
+        nameUrl: orderGoods.product.goods_url_name,
+        imageUrl: orderGoods.product.goods_img,
+        sku: orderGoods.product.goods_sn,
+        productRelationID: orderGoods.product.productRelationID,
+        categoryId: orderGoods.product.cat_id,
+        brand: orderGoods.product.brand,
+        retailPrice: parseFloat(
+            orderGoods.product.retailPrice.amount.toString(),
+        ),
+        salePrice: parseFloat(orderGoods.product.salePrice.amount.toString()),
+      },
+    })),
+  };
+}
+
+async function prepareOrder() {
+  const order = getData4Order();
+  const exchangeRate = await getExchangePrice(order.payment.time);
+  return {
+    ...order,
+    exchangeRate,
+  };
+}
+
+async function saveOrder() {
+  const button = document.getElementById("genostore-save-order-btn");
+  if (button.disabled) {
+    return;
+  }
+  button.disabled = true;
+  button.innerHTML = "Cargando Productos...";
+  button.style.cursor = "not-allowed";
+  try {
+    const order = await prepareOrder();
+    console.log("Order", order);
+    const response = await fetch("http://localhost:3000/orders", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(order),
+    });
+    if (response.ok) {
+      alert(`Orden ${order.orderNumber} guardada correctamente`);
+    } else {
+      const errorData = await response.json();
+      alert(`Error al guardar la orden ${errorData.message}`);
+    }
+  } catch (e) {
+    alert(`No se ha podido procesar los datos ${error.message}`);
+  }  finally {
+    button.disabled = false;
+    button.innerHTML = "Guardar Datos de la Orden";
+    button.style.cursor = "pointer";
+  }
+}
+
 async function sendOrderItems() {
   const button = document.getElementById("genostore-save-btn");
   if (button.disabled) {
@@ -158,9 +249,37 @@ function addButton(orderCode) {
   element.appendChild(button);
 }
 
+function addSaveOrderButton(orderCode) {
+  const button = document.createElement("button");
+  button.innerHTML = "Guardar Datos de la Orden";
+  button.id = "genostore-save-order-btn";
+  button.onclick = saveOrder;
+  css(button, {
+    minWidth: "80px",
+    height: "28px",
+    lineHeight: "26px",
+    padding: "0 10px",
+    fontSize: "12px",
+    border: "1px solid red",
+    backgroundColor: "white",
+    color: "#222222",
+    fontWeight: "bold",
+    display: "block",
+    textAlign: "center",
+    margin: "auto",
+    cursor: "pointer",
+  });
+  const splitOrderCode = ` ${orderCode.split("").join(" ")}`;
+  const element = document.querySelector(
+      `.order-info > li > [aria-label="${splitOrderCode}"]`
+  );
+  element.appendChild(button);
+}
+
 (() => {
   const siteOrder = verifySiteOrder();
   if (siteOrder.valid) {
     addButton(siteOrder.orderCode);
+    addSaveOrderButton(siteOrder.orderCode);
   }
 })();
