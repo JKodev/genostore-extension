@@ -64,6 +64,12 @@ function verifySiteOrder() {
   };
 }
 
+function verifyProductDetail() {
+  return {
+    valid: window.goodsDetailV3SsrData && typeof window.goodsDetailV3SsrData === 'object' && !Array.isArray(window.goodsDetailV3SsrData) && Object.keys(window.goodsDetailV3SsrData).length > 0,
+  };
+}
+
 function getData4Order() {
   const orderDTO = window.GB_OrderDetail.order;
   return {
@@ -276,10 +282,83 @@ function addSaveOrderButton(orderCode) {
   element.appendChild(button);
 }
 
+function downloadImage(imageUrl, name) {
+  const corsProxy = 'https://cors.genostore.us/';
+  const imageUrlWithProtocol = imageUrl.startsWith('http') ? imageUrl : `https:${imageUrl}`;
+  const url = `${corsProxy}${imageUrlWithProtocol}`;
+  fetch(url, {
+    headers: {
+      'Content-Type': 'image/jpeg',
+    },
+  }).then((response) => {
+    if (response.ok) {
+      return response.blob();
+    }
+    throw new Error('Network response was not ok');
+  }).then((blob) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.download = name;
+    a.href = url;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }).catch((error) => {
+    console.log('Error', error);
+  });
+}
+
+function downloadImages() {
+  const images = window?.goodsDetailV3SsrData?.productIntroData?.goods_imgs?.detail_image || [];
+  Promise.all(
+    images.map(
+      (image, index) => downloadImage(image.origin_image, `${window?.goodsDetailV3SsrData?.currentGoodsSn}-${index}.jpg`)
+    )
+  ).then(() => console.log('All images downloaded'));
+}
+function addSaveImageButton() {
+
+  const container = document.createElement("div");
+  container.id = "genostore-save-image-container";
+  css(container, {
+    position: 'fixed',
+    bottom: '50%',
+    right: '40px',
+    zIndex: '9999',
+    padding: '10px',
+  });
+
+  document.body.appendChild(container);
+
+  const button = document.createElement("button");
+  button.textContent = "Guardar Imágenes";
+  button.id = "genostore-save-image-btn";
+  button.onclick = downloadImages;
+  css(button, {
+    minWidth: "80px",
+    lineHeight: "26px",
+    padding: "10px 20px",
+    fontSize: "16px",
+    border: "2px solid red",
+    backgroundColor: "white",
+    color: "#222222",
+    fontWeight: "bold",
+    display: "block",
+    textAlign: "center",
+    margin: "auto",
+    cursor: "pointer",
+    fontFamily: 'Arial Black',
+    textTransform: 'uppercase',
+  });
+  container.appendChild(button);
+}
+
 (() => {
   const siteOrder = verifySiteOrder();
   if (siteOrder.valid) {
     addButton(siteOrder.orderCode);
     addSaveOrderButton(siteOrder.orderCode);
+  }
+  if (verifyProductDetail().valid) {
+    addSaveImageButton();
   }
 })();
